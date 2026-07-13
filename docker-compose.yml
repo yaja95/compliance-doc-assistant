@@ -1,0 +1,33 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: compliance_doc_assistant
+    ports:
+      - "5432:5432"
+    volumes:
+      - compliance-doc-assistant-db:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      COMPLIANCE_DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/compliance_doc_assistant
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "uv run alembic upgrade head &&
+             uv run uvicorn --app-dir src --host 0.0.0.0 compliance_doc_assistant.main:app"
+
+volumes:
+  compliance-doc-assistant-db:

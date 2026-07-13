@@ -1,0 +1,19 @@
+.DS_Store
+.env
+.venv/
+.uv-cache/
+__pycache__/
+*.py[cod]
+*.sqlite
+*.db
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env*.local

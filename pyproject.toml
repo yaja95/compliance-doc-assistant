@@ -1,0 +1,46 @@
+[project]
+name = "compliance-doc-assistant"
+version = "0.1.0"
+description = "An AI-powered compliance document review assistant with source-grounded, citation-backed answers and human review safeguards."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.18.5",
+    "anthropic>=0.40.0",
+    "bcrypt>=4.2.0",
+    "fastapi>=0.116.0",
+    "pgvector>=0.3.6",
+    "psycopg[binary]>=3.1",
+    "pypdf>=5.1.0",
+    "python-multipart>=0.0.20",
+    "sentence-transformers>=3.3.0",
+    "sqlmodel>=0.0.24",
+    "uvicorn[standard]>=0.35.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/compliance_doc_assistant"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.0",
+    "pytest>=8.4.0",
+    "ruff>=0.12.0",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "pgvector_smoke_test"]
+target-version = "py312"
+extend-exclude = [".venv", ".uv-cache"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

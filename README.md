@@ -1,0 +1,54 @@
+# compliance-doc-assistant
+
+An AI-powered document review assistant for compliance-heavy financial institution workflows. Upload a policy or regulatory document, ask natural-language questions, and get source-grounded answers with citations back to the originating sections — with low-confidence answers flagged for human review instead of asserted confidently.
+
+## Problem
+
+Financial institutions review large compliance documents manually, creating delays, missed obligations, and inconsistent interpretation.
+
+## Solution
+
+This app allows a user to upload a compliance document, ask natural language questions, receive source-grounded answers with citations, and see a review flag whenever the system isn't confident enough in an answer to assert it without a human check.
+
+## Technical Stack
+
+- **Backend:** Python, FastAPI, SQLModel, Alembic, PostgreSQL + pgvector
+- **Embeddings:** local `sentence-transformers` model (`all-MiniLM-L6-v2`)
+- **Generation:** Anthropic Claude API
+- **Frontend:** Next.js (TypeScript, App Router)
+- **Deployment:** Docker Compose (local), Render (planned)
+
+## FDE Relevance
+
+Demonstrates customer workflow discovery, document ingestion, RAG system design, deployment, user-facing UX, and operational risk controls (human-in-the-loop review for low-confidence answers).
+
+## Development
+
+See [AGENTS.md](AGENTS.md) for working norms, [PM_PROTOCOL.md](PM_PROTOCOL.md) for how work is verified and tracked, and [LEDGER.md](LEDGER.md) for the milestone-by-milestone build history.
+
+### Backend
+
+```bash
+uv sync                                                                        # install dependencies
+docker compose up -d db                                                       # start Postgres + pgvector
+uv run alembic upgrade head                                                   # apply migrations
+uv run uvicorn --app-dir src compliance_doc_assistant.main:app --reload       # run the API (http://127.0.0.1:8000/docs)
+uv run ruff format .                                                          # format
+uv run ruff check .                                                          # lint
+uv run pytest                                                                # run tests
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev      # http://localhost:3000
+npm run build
+```
+
+## Known Limitations
+
+- v1 supports `.txt` and `.pdf` uploads only.
+- Chunking is fixed-size (not section/heading-aware), which can occasionally split a document mid-clause.
+- Document ingestion runs synchronously in-request; very large PDFs may be slow.
