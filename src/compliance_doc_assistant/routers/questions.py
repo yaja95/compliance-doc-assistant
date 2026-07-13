@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from compliance_doc_assistant.auth import CurrentUser
+from compliance_doc_assistant.confidence import assess_confidence
 from compliance_doc_assistant.database import get_session
 from compliance_doc_assistant.embeddings import embed_texts
 from compliance_doc_assistant.generation import GenerationClientDep, GenerationResult
@@ -20,6 +21,7 @@ from compliance_doc_assistant.models import (
     QuestionRead,
 )
 from compliance_doc_assistant.retrieval import RetrievedChunk, retrieve_relevant_chunks
+from compliance_doc_assistant.review import maybe_create_review_flag
 from compliance_doc_assistant.routers.documents import get_owned_document
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -61,11 +63,14 @@ def ask_question(
     matches = retrieve_relevant_chunks(session, document_id, query_embedding)
 
     result = _generate_answer(generation_client, question_create.question_text, matches)
+    confidence = assess_confidence([match.score for match in matches])
 
     answer = Answer(
         question_id=question.id or 0,
         answer_text=result.answer_text,
         model_used=result.model,
+        needs_review=confidence.needs_review,
+        confidence_reason=confidence.reason,
     )
     session.add(answer)
     session.flush()
@@ -83,6 +88,8 @@ def ask_question(
     )
     session.commit()
     session.refresh(answer)
+
+    maybe_create_review_flag(session, answer)
 
     return QuestionAnswerRead(
         question=QuestionRead.model_validate(question),

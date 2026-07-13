@@ -8,7 +8,7 @@ Financial institutions review large compliance documents manually, creating dela
 
 ## Solution
 
-This app allows a user to upload a compliance document, ask natural language questions, receive source-grounded answers with citations, and see a review flag whenever the system isn't confident enough in an answer to assert it without a human check.
+This app allows a user to upload a compliance document, ask natural language questions, receive source-grounded answers with citations, and see a review flag whenever the system isn't confident enough in an answer to assert it without a human check. Flagged answers can be listed and marked resolved or dismissed once a human has reviewed them.
 
 ## Technical Stack
 
@@ -55,4 +55,4 @@ npm run build
 - There is currently only one user account (the seeded `demo` user) — self-service user creation isn't built yet.
 - Citations are every chunk retrieved for a question, not chunks the model self-reports actually using — the model is asked to reference them in prose, but citation records are derived mechanically from retrieval, not from structured model output.
 - The default Anthropic provider requires `ANTHROPIC_API_KEY` to be set; without it, set `GENERATION_PROVIDER=ollama` and run a local Ollama instance instead (see `docker-compose.yml`'s optional `ollama` service).
-- Answers aren't yet flagged for human review when confidence is low — that's the next milestone.
+- Low-confidence review flagging is retrieval-score-based only (no LLM self-reported confidence signal yet), with thresholds calibrated from a handful of manually observed scores rather than a real hand-labeled eval set — treat the exact cutoffs as a starting point, not a tuned value.

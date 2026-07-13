@@ -125,6 +125,8 @@ class QuestionRead(QuestionBase):
 class AnswerBase(SQLModel):
     answer_text: str
     model_used: str
+    needs_review: bool = False
+    confidence_reason: str | None = None
 
 
 class Answer(AnswerBase, table=True):
@@ -162,3 +164,39 @@ class AnswerWithCitationsRead(AnswerRead):
 class QuestionAnswerRead(SQLModel):
     question: QuestionRead
     answer: AnswerWithCitationsRead
+
+
+class ReviewFlagStatus(StrEnum):
+    PENDING = "pending"
+    RESOLVED = "resolved"
+    DISMISSED = "dismissed"
+
+
+class ReviewFlagBase(SQLModel):
+    reason: str
+
+
+class ReviewFlag(ReviewFlagBase, table=True):
+    __table_args__ = (UniqueConstraint("answer_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    answer_id: int = Field(foreign_key="answer.id", index=True)
+    status: ReviewFlagStatus = Field(default=ReviewFlagStatus.PENDING, sa_type=sa.String(length=20))
+    reviewed_by: int | None = Field(default=None, foreign_key="user.id")
+    reviewed_at: datetime | None = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class ReviewFlagRead(ReviewFlagBase):
+    id: int
+    answer_id: int
+    status: ReviewFlagStatus
+    reviewed_by: int | None
+    reviewed_at: datetime | None
+    created_at: datetime
+
+
+class ResolveReviewFlagRequest(SQLModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: ReviewFlagStatus

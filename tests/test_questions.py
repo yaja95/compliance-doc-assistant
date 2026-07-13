@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from compliance_doc_assistant.auth import hash_password
+from compliance_doc_assistant.confidence import ConfidenceResult
 from compliance_doc_assistant.database import engine
 from compliance_doc_assistant.generation import GenerationResult, get_generation_client
 from compliance_doc_assistant.main import app
@@ -166,3 +167,60 @@ def test_ask_question_rejects_document_not_yet_embedded() -> None:
         )
 
     assert response.status_code == 422
+
+
+def test_low_confidence_answer_is_flagged_and_creates_review_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "compliance_doc_assistant.routers.questions.assess_confidence",
+        lambda scores: ConfidenceResult(needs_review=True, reason="forced for test"),
+    )
+
+    with TestClient(app) as client:
+        headers = create_user_and_login(client, "low-confidence-user")
+        document_id = upload_document(client, headers, "policy.txt", b"Some policy content.")
+
+        ask_response = client.post(
+            f"/documents/{document_id}/questions",
+            json={"question_text": "What does it say?"},
+            headers=headers,
+        )
+        flags_response = client.get("/review-flags", headers=headers)
+
+    assert ask_response.status_code == 201
+    answer = ask_response.json()["answer"]
+    assert answer["needs_review"] is True
+    assert answer["confidence_reason"] == "forced for test"
+
+    assert flags_response.status_code == 200
+    flags = flags_response.json()
+    assert len(flags) == 1
+    assert flags[0]["reason"] == "forced for test"
+    assert flags[0]["status"] == "pending"
+
+
+def test_high_confidence_answer_is_not_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "compliance_doc_assistant.routers.questions.assess_confidence",
+        lambda scores: ConfidenceResult(needs_review=False, reason=None),
+    )
+
+    with TestClient(app) as client:
+        headers = create_user_and_login(client, "high-confidence-user")
+        document_id = upload_document(client, headers, "policy.txt", b"Some policy content.")
+
+        ask_response = client.post(
+            f"/documents/{document_id}/questions",
+            json={"question_text": "What does it say?"},
+            headers=headers,
+        )
+        flags_response = client.get("/review-flags", headers=headers)
+
+    assert ask_response.status_code == 201
+    answer = ask_response.json()["answer"]
+    assert answer["needs_review"] is False
+    assert answer["confidence_reason"] is None
+
+    assert flags_response.status_code == 200
+    assert flags_response.json() == []
