@@ -101,6 +101,69 @@ jobs:
       - name: pgvector smoke test
         run: uv run pytest pgvector_smoke_test/ -v
 
+  ollama-smoke:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: compliance_doc_assistant
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      ollama:
+        image: ollama/ollama
+        ports:
+          - 11434:11434
+
+    env:
+      COMPLIANCE_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/compliance_doc_assistant
+      GENERATION_PROVIDER: ollama
+      OLLAMA_HOST: http://localhost:11434
+      OLLAMA_GENERATION_MODEL: qwen2.5:1.5b
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Wait for Ollama to be ready
+        run: |
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:11434/ && exit 0
+            sleep 2
+          done
+          echo "Ollama did not become ready in time" >&2
+          exit 1
+
+      - name: Pull Ollama model
+        run: |
+          curl -sf --max-time 300 http://localhost:11434/api/pull \
+            -d '{"model": "qwen2.5:1.5b", "stream": false}'
+
+      - name: Run migrations
+        run: uv run alembic upgrade head
+
+      - name: Ollama generation smoke test
+        run: uv run pytest ollama_smoke_test/ -v
+
   frontend:
     runs-on: ubuntu-latest
 

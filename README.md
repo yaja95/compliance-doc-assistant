@@ -14,7 +14,7 @@ This app allows a user to upload a compliance document, ask natural language que
 
 - **Backend:** Python, FastAPI, SQLModel, Alembic, PostgreSQL + pgvector
 - **Embeddings:** local `sentence-transformers` model (`all-MiniLM-L6-v2`)
-- **Generation:** Anthropic Claude API
+- **Generation:** Anthropic Claude API by default, with a free local Ollama fallback provider (`GENERATION_PROVIDER=ollama`) behind the same interface
 - **Frontend:** Next.js (TypeScript, App Router)
 - **Deployment:** Docker Compose (local), Render (planned)
 
@@ -53,3 +53,6 @@ npm run build
 - Chunking is fixed-size (~500 words with ~50-word overlap, not section/heading-aware), which can occasionally split a document mid-clause. "Words" stand in for tokens until a real tokenizer arrives with embeddings.
 - Document ingestion runs synchronously in-request; very large PDFs may be slow.
 - There is currently only one user account (the seeded `demo` user) — self-service user creation isn't built yet.
+- Citations are every chunk retrieved for a question, not chunks the model self-reports actually using — the model is asked to reference them in prose, but citation records are derived mechanically from retrieval, not from structured model output.
+- The default Anthropic provider requires `ANTHROPIC_API_KEY` to be set; without it, set `GENERATION_PROVIDER=ollama` and run a local Ollama instance instead (see `docker-compose.yml`'s optional `ollama` service).
+- Answers aren't yet flagged for human review when confidence is low — that's the next milestone.

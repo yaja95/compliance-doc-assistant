@@ -122,13 +122,43 @@ class QuestionRead(QuestionBase):
     created_at: datetime
 
 
-class RetrievedChunkRead(SQLModel):
+class AnswerBase(SQLModel):
+    answer_text: str
+    model_used: str
+
+
+class Answer(AnswerBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    question_id: int = Field(foreign_key="question.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class AnswerRead(AnswerBase):
+    id: int
+    question_id: int
+    created_at: datetime
+
+
+class AnswerCitation(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    answer_id: int = Field(foreign_key="answer.id", index=True)
+    chunk_id: int = Field(foreign_key="chunk.id", index=True)
+    relevance_score: float
+    rank: int
+
+
+class AnswerCitationRead(SQLModel):
     chunk_id: int
     chunk_index: int
     content: str
-    score: float
+    relevance_score: float
+    rank: int
 
 
-class QuestionRetrievalRead(SQLModel):
+class AnswerWithCitationsRead(AnswerRead):
+    citations: list[AnswerCitationRead]
+
+
+class QuestionAnswerRead(SQLModel):
     question: QuestionRead
-    matches: list[RetrievedChunkRead]
+    answer: AnswerWithCitationsRead
