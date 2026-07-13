@@ -97,3 +97,38 @@ class ChunkRead(ChunkBase):
 
 class DocumentDetailRead(DocumentRead):
     chunks: list[ChunkRead]
+
+
+class QuestionBase(SQLModel):
+    question_text: str = Field(min_length=1)
+
+
+class Question(QuestionBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="document.id", index=True)
+    asked_by: int = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class QuestionCreate(SQLModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question_text: str = Field(min_length=1)
+
+
+class QuestionRead(QuestionBase):
+    id: int
+    document_id: int
+    created_at: datetime
+
+
+class RetrievedChunkRead(SQLModel):
+    chunk_id: int
+    chunk_index: int
+    content: str
+    score: float
+
+
+class QuestionRetrievalRead(SQLModel):
+    question: QuestionRead
+    matches: list[RetrievedChunkRead]
