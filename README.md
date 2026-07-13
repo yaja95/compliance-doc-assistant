@@ -16,7 +16,7 @@ This app allows a user to upload a compliance document, ask natural language que
 - **Embeddings:** local `sentence-transformers` model (`all-MiniLM-L6-v2`)
 - **Generation:** Anthropic Claude API by default, with a free local Ollama fallback provider (`GENERATION_PROVIDER=ollama`) behind the same interface
 - **Frontend:** Next.js (TypeScript, App Router)
-- **Deployment:** Docker Compose (local), Render (planned)
+- **Deployment:** Docker Compose (local), Render (backend) + Vercel (frontend) — see [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## FDE Relevance
 

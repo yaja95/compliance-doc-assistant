@@ -75,6 +75,14 @@ Next.js (TypeScript, App Router) app in `frontend/`, kept as a fully separate pa
 - `components/AnswerCard.tsx` — the review-flag banner needs the `ReviewFlag.id` to call `POST /review-flags/{id}/resolve`, but `QuestionAnswerRead` doesn't nest it (only `needs_review`/`confidence_reason` are on the answer). The document detail page cross-references by calling `GET /review-flags` and matching on `answer_id` client-side rather than extending the backend response — kept scope to frontend-only for this milestone.
 - No dedicated global "all my review flags" page in v1 — flags surface inline on whichever document's Q&A they belong to, matching the plan's "review-flag banner" framing. A cross-document flags list would need `ReviewFlagRead` to carry document context; noted as a possible follow-up, not built.
 
+## Deployment
+
+See `DEPLOYMENT.md` for the full recipe. Backend deploys to Render (`render.yaml` blueprint — a managed Postgres with `pgvector` + a Docker web service); frontend deploys to Vercel. No Render integration is available in this environment, so the Render side is manual dashboard steps for the user; the Vercel side can be driven directly via the Vercel MCP connection.
+
+Two things changed in Milestone 9 specifically to make the backend deployable as-is, not just locally:
+- `Dockerfile`'s `CMD` now runs migrations itself (`alembic upgrade head`) before starting `uvicorn`, and binds to `${PORT:-8000}` — Render (and similar PaaS hosts) inject a dynamic `$PORT` at deploy time, so a hardcoded port would fail there. `docker-compose.yml`'s `backend` service no longer needs its own `command:` override since the image default now does the same thing.
+- `database.py`'s `_with_psycopg_driver` normalizes a bare `postgres://`/`postgresql://` connection string (what Render, Heroku, Railway, etc. commonly hand out) to `postgresql+psycopg://`, since SQLAlchemy needs the driver named explicitly to use psycopg3 rather than defaulting to psycopg2 (not installed here). Without this, pasting Render's connection string directly into `COMPLIANCE_DATABASE_URL` would fail at engine creation.
+
 ## Roadmap
 
 See `LEDGER.md` for shipped milestones and the project plan for what's next. Confirm with the user before starting a new milestone rather than assuming scope.
