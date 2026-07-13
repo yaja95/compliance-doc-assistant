@@ -26,7 +26,7 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-def _get_owned_document(session: Session, document_id: int, owner_id: int) -> Document:
+def get_owned_document(session: Session, document_id: int, owner_id: int) -> Document:
     document = session.get(Document, document_id)
     if document is None or document.owner_id != owner_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
@@ -76,7 +76,7 @@ def list_documents(current_user: CurrentUser, session: SessionDep) -> list[Docum
 def get_document(
     document_id: int, current_user: CurrentUser, session: SessionDep
 ) -> DocumentDetailRead:
-    document = _get_owned_document(session, document_id, current_user.id or 0)
+    document = get_owned_document(session, document_id, current_user.id or 0)
     chunks = session.exec(
         select(Chunk).where(Chunk.document_id == document_id).order_by(Chunk.chunk_index)
     ).all()
