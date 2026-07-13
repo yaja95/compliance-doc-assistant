@@ -1,7 +1,9 @@
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 
 from compliance_doc_assistant.database import engine
@@ -21,6 +23,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="compliance-doc-assistant", lifespan=lifespan)
+
+# The Next.js frontend authenticates with a Bearer token (not cookies), so
+# allow_credentials is deliberately left off — the Authorization header isn't
+# subject to the browser's credentialed-request restrictions.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("FRONTEND_ORIGINS", "http://localhost:3000").split(","),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth_router)
 app.include_router(me_router)
 app.include_router(documents_router)

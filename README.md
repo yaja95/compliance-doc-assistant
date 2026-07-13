@@ -43,9 +43,11 @@ uv run pytest                                                                # r
 ```bash
 cd frontend
 npm install
-npm run dev      # http://localhost:3000
+npm run dev      # http://localhost:3000 — talks to the backend at http://localhost:8000 by default
 npm run build
 ```
+
+Set `NEXT_PUBLIC_API_BASE_URL` (in `frontend/.env.local`) to point the frontend at a different backend URL. The backend's `FRONTEND_ORIGINS` env var must include whatever origin the frontend is served from (defaults to `http://localhost:3000`), or CORS will block requests.
 
 ## Known Limitations
 
@@ -56,3 +58,6 @@ npm run build
 - Citations are every chunk retrieved for a question, not chunks the model self-reports actually using — the model is asked to reference them in prose, but citation records are derived mechanically from retrieval, not from structured model output.
 - The default Anthropic provider requires `ANTHROPIC_API_KEY` to be set; without it, set `GENERATION_PROVIDER=ollama` and run a local Ollama instance instead (see `docker-compose.yml`'s optional `ollama` service).
 - Low-confidence review flagging is retrieval-score-based only (no LLM self-reported confidence signal yet), with thresholds calibrated from a handful of manually observed scores rather than a real hand-labeled eval set — treat the exact cutoffs as a starting point, not a tuned value.
+- The frontend authenticates with a Bearer token stored in `localStorage`, not an httpOnly cookie — simpler to reason about for a decoupled frontend/backend, but the token is readable by any injected script. Acceptable for a portfolio demo; not the choice you'd want for real sensitive data.
+- Review flags surface inline on the document where they were raised, not in a separate cross-document list — there's no dedicated "all my pending reviews" page yet.
+- Ask-question history is only kept for the current browser session (component state, not persisted) — refreshing the page clears the visible Q&A list, though the underlying `Question`/`Answer` rows remain in the database.
