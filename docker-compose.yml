@@ -16,6 +16,17 @@ services:
       timeout: 5s
       retries: 10
 
+  # Optional — only needed if you set GENERATION_PROVIDER=ollama locally instead
+  # of using the default Anthropic provider (requires ANTHROPIC_API_KEY).
+  # Not started automatically by `docker compose up`; run `docker compose up
+  # -d ollama` explicitly, then `docker exec` a `ollama pull <model>` once.
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - compliance-doc-assistant-ollama:/root/.ollama
+
   backend:
     build: .
     depends_on:
@@ -23,6 +34,10 @@ services:
         condition: service_healthy
     environment:
       COMPLIANCE_DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/compliance_doc_assistant
+      GENERATION_PROVIDER: ${GENERATION_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_GENERATION_MODEL: ${OLLAMA_GENERATION_MODEL:-qwen2.5:1.5b}
     ports:
       - "8000:8000"
     command: >
@@ -31,3 +46,4 @@ services:
 
 volumes:
   compliance-doc-assistant-db:
+  compliance-doc-assistant-ollama:

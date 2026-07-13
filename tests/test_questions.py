@@ -1,10 +1,36 @@
+from collections.abc import Generator
+
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from compliance_doc_assistant.auth import hash_password
 from compliance_doc_assistant.database import engine
+from compliance_doc_assistant.generation import GenerationResult, get_generation_client
 from compliance_doc_assistant.main import app
 from compliance_doc_assistant.models import Document, DocumentStatus, User
+from compliance_doc_assistant.retrieval import RetrievedChunk
+
+FAKE_ANSWER_TEXT = "Incidents must be reported within 24 hours (stub answer)."
+FAKE_ANSWER_MODEL = "fake-model"
+
+
+class FakeGenerationClient:
+    provider = "fake-provider"
+
+    def generate(self, question_text: str, chunks: list[RetrievedChunk]) -> GenerationResult:
+        del question_text, chunks
+        return GenerationResult(answer_text=FAKE_ANSWER_TEXT, model=FAKE_ANSWER_MODEL)
+
+
+@pytest.fixture(autouse=True)
+def _default_generation_client() -> Generator[None]:
+    """Stubs get_generation_client for every test in this file so none reach
+    the network (Anthropic or Ollama) by default.
+    """
+    app.dependency_overrides[get_generation_client] = lambda: FakeGenerationClient()
+    yield
+    app.dependency_overrides.pop(get_generation_client, None)
 
 
 def create_user_and_login(
@@ -36,7 +62,7 @@ def test_ask_question_requires_authentication() -> None:
     assert response.status_code == 401
 
 
-def test_ask_question_returns_ranked_matches() -> None:
+def test_ask_question_returns_generated_answer_with_citations() -> None:
     with TestClient(app) as client:
         headers = create_user_and_login(client, "asker1")
         document_id = upload_document(
@@ -57,9 +83,13 @@ def test_ask_question_returns_ranked_matches() -> None:
     body = response.json()
     assert body["question"]["question_text"] == "How soon must incidents be reported?"
     assert body["question"]["document_id"] == document_id
-    assert len(body["matches"]) >= 1
-    assert "score" in body["matches"][0]
-    assert "content" in body["matches"][0]
+    assert body["answer"]["answer_text"] == FAKE_ANSWER_TEXT
+    assert body["answer"]["model_used"] == FAKE_ANSWER_MODEL
+    assert len(body["answer"]["citations"]) >= 1
+    citation = body["answer"]["citations"][0]
+    assert citation["rank"] == 0
+    assert "content" in citation
+    assert "relevance_score" in citation
 
 
 def test_ask_question_returns_404_for_other_users_document() -> None:
