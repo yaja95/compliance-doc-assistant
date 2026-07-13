@@ -18,4 +18,8 @@ RUN PYTHONPATH=src uv run python -c \
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "--app-dir", "src", "--host", "0.0.0.0", "compliance_doc_assistant.main:app"]
+# $PORT is injected by Render (and similar PaaS hosts) at a value chosen at
+# deploy time; falls back to 8000 for docker-compose/local use where nothing
+# sets it. Migrations run here (not as a separate Render "pre-deploy" step)
+# so the image is self-sufficient for any host that just runs the container.
+CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn --app-dir src --host 0.0.0.0 --port ${PORT:-8000} compliance_doc_assistant.main:app"]
