@@ -2,9 +2,12 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 import sqlalchemy as sa
+from pgvector.sqlalchemy import Vector
 from pydantic import ConfigDict
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
+
+from compliance_doc_assistant.embeddings import EMBEDDING_DIMENSIONS
 
 
 def utc_now() -> datetime:
@@ -47,6 +50,7 @@ class AuthSession(SQLModel, table=True):
 class DocumentStatus(StrEnum):
     PENDING = "pending"
     CHUNKED = "chunked"
+    EMBEDDED = "embedded"
     FAILED = "failed"
 
 
@@ -82,6 +86,9 @@ class Chunk(ChunkBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     document_id: int = Field(foreign_key="document.id", index=True)
     created_at: datetime = Field(default_factory=utc_now)
+    # Never client-submittable — not on ChunkBase/ChunkRead, same
+    # server-controlled-results placement as Document.status.
+    embedding: list[float] | None = Field(default=None, sa_type=Vector(EMBEDDING_DIMENSIONS))
 
 
 class ChunkRead(ChunkBase):

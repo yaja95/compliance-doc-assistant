@@ -2,6 +2,7 @@ import pytest
 from sqlmodel import Session, select
 
 from compliance_doc_assistant.database import engine
+from compliance_doc_assistant.embeddings import EMBEDDING_DIMENSIONS
 from compliance_doc_assistant.ingestion import (
     EmptyDocumentError,
     UnsupportedFileTypeError,
@@ -44,7 +45,7 @@ def test_ingest_document_persists_document_and_chunks() -> None:
         document = ingest_document(session, owner_id, "big-policy.txt", text.encode("utf-8"))
 
         assert document.id is not None
-        assert document.status == DocumentStatus.CHUNKED
+        assert document.status == DocumentStatus.EMBEDDED
         assert document.owner_id == owner_id
         assert document.source_format == "txt"
 
@@ -53,6 +54,9 @@ def test_ingest_document_persists_document_and_chunks() -> None:
         ).all()
         assert len(chunks) > 1
         assert [c.chunk_index for c in chunks] == list(range(len(chunks)))
+        assert all(
+            c.embedding is not None and len(c.embedding) == EMBEDDING_DIMENSIONS for c in chunks
+        )
 
 
 def test_ingest_document_rejects_empty_text() -> None:

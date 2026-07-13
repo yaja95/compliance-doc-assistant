@@ -49,7 +49,7 @@ def test_upload_txt_document_success() -> None:
     body = response.json()
     assert body["filename"] == "policy.txt"
     assert body["source_format"] == "txt"
-    assert body["status"] == "chunked"
+    assert body["status"] == "embedded"
 
 
 def test_upload_pdf_document_success() -> None:
