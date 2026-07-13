@@ -1,5 +1,7 @@
 from datetime import UTC, datetime
+from enum import StrEnum
 
+import sqlalchemy as sa
 from pydantic import ConfigDict
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
@@ -40,3 +42,51 @@ class AuthSession(SQLModel, table=True):
     token: str = Field(index=True)
     created_at: datetime = Field(default_factory=utc_now)
     expires_at: datetime
+
+
+class DocumentStatus(StrEnum):
+    PENDING = "pending"
+    CHUNKED = "chunked"
+    FAILED = "failed"
+
+
+class DocumentBase(SQLModel):
+    filename: str = Field(min_length=1, max_length=255)
+    source_format: str = Field(max_length=10)
+
+
+class Document(DocumentBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    owner_id: int = Field(foreign_key="user.id", index=True)
+    # Forced to a plain VARCHAR (not a native Postgres ENUM) so adding future
+    # status values needs no migration — same rationale as User.role in
+    # evalops-dashboard.
+    status: DocumentStatus = Field(default=DocumentStatus.PENDING, sa_type=sa.String(length=20))
+    uploaded_at: datetime = Field(default_factory=utc_now)
+
+
+class DocumentRead(DocumentBase):
+    id: int
+    status: DocumentStatus
+    uploaded_at: datetime
+
+
+class ChunkBase(SQLModel):
+    chunk_index: int
+    section_label: str | None = Field(default=None, max_length=120)
+    content: str
+    token_count: int = Field(ge=0)
+
+
+class Chunk(ChunkBase, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="document.id", index=True)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class ChunkRead(ChunkBase):
+    id: int
+
+
+class DocumentDetailRead(DocumentRead):
+    chunks: list[ChunkRead]

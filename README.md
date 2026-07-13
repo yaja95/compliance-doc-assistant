@@ -49,6 +49,7 @@ npm run build
 
 ## Known Limitations
 
-- v1 supports `.txt` and `.pdf` uploads only.
-- Chunking is fixed-size (not section/heading-aware), which can occasionally split a document mid-clause.
+- v1 supports `.txt` and `.pdf` uploads only, up to 10MB per file.
+- Chunking is fixed-size (~500 words with ~50-word overlap, not section/heading-aware), which can occasionally split a document mid-clause. "Words" stand in for tokens until a real tokenizer arrives with embeddings.
 - Document ingestion runs synchronously in-request; very large PDFs may be slow.
+- There is currently only one user account (the seeded `demo` user) — self-service user creation isn't built yet.

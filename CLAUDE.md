@@ -36,13 +36,18 @@ Database URL is configurable via `COMPLIANCE_DATABASE_URL` (defaults to a local 
 
 ## Architecture
 
-FastAPI + SQLModel app under `src/compliance_doc_assistant/`, mirroring evalops-dashboard's flat-modules-plus-routers style. As of Milestone 1, only the skeleton exists:
+FastAPI + SQLModel app under `src/compliance_doc_assistant/`, mirroring evalops-dashboard's flat-modules-plus-routers style:
 
 - `database.py` — single SQLAlchemy `engine`, built from `COMPLIANCE_DATABASE_URL`. No SQLite branching (unlike evalops-dashboard) since Postgres is mandatory here.
-- `models.py` — will hold all SQLModel table models plus their `*Create`/`*Read` DTOs, colocated, once Milestone 2 adds the first tables (`User`, `AuthSession`).
-- `main.py` — app instance and `GET /health`.
+- `models.py` — all SQLModel table models plus their `*Create`/`*Read` DTOs, colocated. `User`/`AuthSession` (Milestone 2), `Document`/`Chunk` (Milestone 3, no `embedding` column yet — that's Milestone 4). `DocumentStatus` and `ChunkRead`/`DocumentDetailRead` DTOs live here too. `Document.status` is forced to a plain `sa.String(length=20)` rather than a native Postgres ENUM, same rationale as evalops-dashboard's `User.role` — new status values need no migration.
+- `auth.py` — session-based auth (bcrypt hashing, opaque `secrets.token_urlsafe` tokens, cookie or `Authorization: Bearer`), direct port of evalops-dashboard's pattern minus RBAC/rate-limiting (deliberately deferred, see `LEDGER.md` Milestone 2).
+- `chunking.py` — pure function `split_into_chunks(text, chunk_size_words, overlap_words) -> list[ChunkDraft]`. No DB, no model, no I/O. "Words" (whitespace-split) stand in for tokens — there's no tokenizer wired up until Milestone 4's embeddings arrive. Stops emitting windows once one reaches the end of the text, rather than always advancing by a fixed stride — otherwise a stride that doesn't evenly divide the text length produces a tiny, almost-entirely-duplicate trailing chunk (caught by `test_produces_overlapping_windows` during Milestone 3).
+- `ingestion.py` — `extract_text` dispatches on file extension (`.txt` decoded directly, `.pdf` via `pypdf`, wrapping `PdfReadError` into a domain `InvalidPdfError` rather than leaking the raw library exception). `ingest_document` is a documented deviation from the pure-module pattern (like `auth.py`'s session functions): it does real DB I/O directly — persists the `Document`, calls `chunking.split_into_chunks`, persists the `Chunk` rows, and flips `Document.status` from `pending` to `chunked`.
+- `main.py` — app instance, lifespan hook that seeds a demo user via `seed.py`, and `GET /health`.
 
-Planned modules (Milestones 2-7, see `LEDGER.md` and the project plan for the full roadmap): `auth.py` (session-based auth, ported from evalops-dashboard's pattern), `ingestion.py` (upload + text extraction), `chunking.py` (pure fixed-size chunking), `embeddings.py` (lazy-loaded `sentence-transformers` singleton), `retrieval.py` (pgvector nearest-neighbor queries), `generation.py` (Anthropic Claude RAG calls), `confidence.py` (pure review-flag decision logic), `review.py` (review-flag persistence).
+Planned modules (Milestones 4-7, see `LEDGER.md` and the project plan for the full roadmap): `embeddings.py` (lazy-loaded `sentence-transformers` singleton), `retrieval.py` (pgvector nearest-neighbor queries), `generation.py` (Anthropic Claude RAG calls), `confidence.py` (pure review-flag decision logic), `review.py` (review-flag persistence).
+
+- `routers/documents.py` — `POST /documents` (upload, enforces a 10MB size limit before calling `ingestion.ingest_document`, translates its domain errors to 415/422), `GET /documents` (list, scoped to `current_user`), `GET /documents/{id}` (detail with chunks). All three require auth (`CurrentUser`). Documents are scoped per-owner: a document ID belonging to another user 404s (not 403), same anti-enumeration principle already established for auth in Milestone 2 — `_get_owned_document` is the shared helper for that check.
 
 ### Migrations
 
