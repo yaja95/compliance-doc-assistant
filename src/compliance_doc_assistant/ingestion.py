@@ -6,6 +6,7 @@ from pypdf.errors import PdfReadError
 from sqlmodel import Session
 
 from compliance_doc_assistant.chunking import split_into_chunks
+from compliance_doc_assistant.embeddings import embed_texts
 from compliance_doc_assistant.models import Chunk, Document, DocumentStatus
 
 SUPPORTED_EXTENSIONS = {".txt", ".pdf"}
@@ -64,6 +65,7 @@ def ingest_document(session: Session, owner_id: int, filename: str, content: byt
     session.flush()
 
     drafts = split_into_chunks(text)
+    embeddings = embed_texts([draft.content for draft in drafts])
     session.add_all(
         [
             Chunk(
@@ -71,11 +73,12 @@ def ingest_document(session: Session, owner_id: int, filename: str, content: byt
                 chunk_index=draft.chunk_index,
                 content=draft.content,
                 token_count=draft.token_count,
+                embedding=embedding,
             )
-            for draft in drafts
+            for draft, embedding in zip(drafts, embeddings, strict=True)
         ]
     )
-    document.status = DocumentStatus.CHUNKED
+    document.status = DocumentStatus.EMBEDDED
     session.add(document)
     session.commit()
     session.refresh(document)
